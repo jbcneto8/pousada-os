@@ -18,6 +18,63 @@ def get_supabase() -> Client:
 
 supabase = get_supabase()
 
+# ─── FORMATAÇÃO E VALIDAÇÃO ───────────────────────────────────────────────────
+
+def formatar_cpf_cnpj(valor):
+    nums = ''.join(filter(str.isdigit, valor))
+    if len(nums) <= 11:
+        nums = nums[:11]
+        if len(nums) == 11:
+            return f"{nums[:3]}.{nums[3:6]}.{nums[6:9]}-{nums[9:]}"
+    else:
+        nums = nums[:14]
+        if len(nums) == 14:
+            return f"{nums[:2]}.{nums[2:5]}.{nums[5:8]}/{nums[8:12]}-{nums[12:]}"
+    return valor
+
+def validar_cpf(cpf):
+    nums = ''.join(filter(str.isdigit, cpf))
+    if len(nums) != 11 or len(set(nums)) == 1:
+        return False
+    soma = sum(int(nums[i]) * (10 - i) for i in range(9))
+    d1 = (soma * 10 % 11) % 10
+    if d1 != int(nums[9]):
+        return False
+    soma = sum(int(nums[i]) * (11 - i) for i in range(10))
+    d2 = (soma * 10 % 11) % 10
+    return d2 == int(nums[10])
+
+def validar_cnpj(cnpj):
+    nums = ''.join(filter(str.isdigit, cnpj))
+    if len(nums) != 14 or len(set(nums)) == 1:
+        return False
+    pesos1 = [5,4,3,2,9,8,7,6,5,4,3,2]
+    pesos2 = [6,5,4,3,2,9,8,7,6,5,4,3,2]
+    soma = sum(int(nums[i]) * pesos1[i] for i in range(12))
+    d1 = 0 if soma % 11 < 2 else 11 - soma % 11
+    if d1 != int(nums[12]):
+        return False
+    soma = sum(int(nums[i]) * pesos2[i] for i in range(13))
+    d2 = 0 if soma % 11 < 2 else 11 - soma % 11
+    return d2 == int(nums[13])
+
+def validar_cpf_cnpj(valor):
+    nums = ''.join(filter(str.isdigit, valor))
+    if len(nums) == 11:
+        return validar_cpf(valor)
+    elif len(nums) == 14:
+        return validar_cnpj(valor)
+    return False
+
+def formatar_telefone(valor):
+    nums = ''.join(filter(str.isdigit, valor))
+    nums = nums[:11]
+    if len(nums) == 11:
+        return f"({nums[:2]}) {nums[2:7]}-{nums[7:]}"
+    elif len(nums) == 10:
+        return f"({nums[:2]}) {nums[2:6]}-{nums[6:]}"
+    return valor
+
 # ─── VALOR POR EXTENSO ────────────────────────────────────────────────────────
 
 def valor_por_extenso(valor):
@@ -338,18 +395,23 @@ def tela_hospedagem():
             novo_nasc   = c2.text_input("Data de nascimento", placeholder="DD/MM/AAAA")
             c3, c4 = st.columns(2)
             novo_rg     = c3.text_input("RG")
-            novo_cpf    = c4.text_input("CPF")
+            novo_cpf    = c4.text_input("CPF / CNPJ", placeholder="000.000.000-00 ou 00.000.000/0000-00")
             c5, c6 = st.columns(2)
-            novo_tel    = c5.text_input("Telefone fixo")
-            novo_cel    = c6.text_input("Celular")
+            novo_tel    = c5.text_input("Telefone fixo", placeholder="(00) 0000-0000")
+            novo_cel    = c6.text_input("Celular", placeholder="(00) 00000-0000")
             salvar_novo = st.form_submit_button("✅ Salvar e usar este hóspede")
         if salvar_novo:
             if not novo_nome:
                 st.warning("Informe o nome do hóspede.")
+            elif novo_cpf and not validar_cpf_cnpj(novo_cpf):
+                st.error("CPF/CNPJ inválido. Verifique os números digitados.")
             else:
+                cpf_fmt = formatar_cpf_cnpj(novo_cpf) if novo_cpf else ""
+                tel_fmt = formatar_telefone(novo_tel) if novo_tel else ""
+                cel_fmt = formatar_telefone(novo_cel) if novo_cel else ""
                 h = salvar_hospede({"nome": novo_nome, "data_nascimento": novo_nasc,
-                                    "rg": novo_rg, "cpf": novo_cpf,
-                                    "telefone": novo_tel, "celular": novo_cel})
+                                    "rg": novo_rg, "cpf": cpf_fmt,
+                                    "telefone": tel_fmt, "celular": cel_fmt})
                 if h:
                     st.session_state.hospede_selecionado = h
                     st.session_state.mostrar_cadastro_rapido = False
@@ -436,9 +498,7 @@ def tela_hospedagem():
                     lancamento_dados,
                     lancamento_id
                 )
-                b64 = base64.b64encode(html_recibo.encode()).decode()
-                href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:inline-block;padding:8px 16px;background:#0066cc;color:white;border-radius:6px;text-decoration:none;font-weight:bold;">🖨️ Abrir recibo para imprimir</a>'
-                st.markdown(href, unsafe_allow_html=True)
+                st.session_state["recibo_html"] = html_recibo
             elif recibo and not st.session_state.hospede_selecionado:
                 st.warning("Selecione um hóspede para gerar o recibo.")
 
@@ -448,6 +508,17 @@ def tela_hospedagem():
             st.error("Valor inválido. Use apenas números, ex: 320,00")
         except Exception as e:
             st.error(f"Erro ao salvar: {e}")
+
+    if st.session_state.get("recibo_html"):
+        html_recibo = st.session_state["recibo_html"]
+        b64 = base64.b64encode(html_recibo.encode()).decode()
+        href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:inline-block;padding:10px 20px;background:#0066cc;color:white;border-radius:6px;text-decoration:none;font-weight:bold;font-size:15px;">🖨️ Abrir recibo para imprimir</a>'
+        st.success("✅ Recibo gerado com sucesso!")
+        st.markdown(href, unsafe_allow_html=True)
+        st.caption("Se não abrir automaticamente, clique no botão acima. Verifique se popups estão permitidos neste site.")
+        if st.button("✖️ Limpar", key="fechar_recibo_hosp"):
+            del st.session_state["recibo_html"]
+            st.rerun()
 
 # ─── TELA DESPESAS ────────────────────────────────────────────────────────────
 
@@ -586,18 +657,23 @@ def tela_cadastro_hospedes():
             nasc   = c2.text_input("Data de nascimento", placeholder="DD/MM/AAAA")
             c3, c4 = st.columns(2)
             rg     = c3.text_input("RG")
-            cpf    = c4.text_input("CPF")
+            cpf    = c4.text_input("CPF / CNPJ", placeholder="000.000.000-00 ou 00.000.000/0000-00")
             c5, c6 = st.columns(2)
-            tel    = c5.text_input("Telefone fixo")
-            cel    = c6.text_input("Celular")
+            tel    = c5.text_input("Telefone fixo", placeholder="(00) 0000-0000")
+            cel    = c6.text_input("Celular", placeholder="(00) 00000-0000")
             salvar = st.form_submit_button("✅ Cadastrar hóspede", use_container_width=True)
         if salvar:
             if not nome:
                 st.warning("Informe o nome do hóspede.")
+            elif cpf and not validar_cpf_cnpj(cpf):
+                st.error("CPF/CNPJ inválido. Verifique os números digitados.")
             else:
+                cpf_fmt = formatar_cpf_cnpj(cpf) if cpf else ""
+                tel_fmt = formatar_telefone(tel) if tel else ""
+                cel_fmt = formatar_telefone(cel) if cel else ""
                 h = salvar_hospede({"nome": nome, "data_nascimento": nasc,
-                                    "rg": rg, "cpf": cpf,
-                                    "telefone": tel, "celular": cel})
+                                    "rg": rg, "cpf": cpf_fmt,
+                                    "telefone": tel_fmt, "celular": cel_fmt})
                 if h:
                     st.success(f"Hóspede '{nome}' cadastrado com sucesso!")
 
@@ -627,19 +703,25 @@ def tela_cadastro_hospedes():
                         e_nasc = c2.text_input("Nascimento", value=h.get("data_nascimento") or "", key=f"nasc_{h['id']}")
                         c3, c4 = st.columns(2)
                         e_rg   = c3.text_input("RG",  value=h.get("rg") or "", key=f"rg_{h['id']}")
-                        e_cpf  = c4.text_input("CPF", value=h.get("cpf") or "", key=f"cpf_{h['id']}")
+                        e_cpf  = c4.text_input("CPF / CNPJ", value=h.get("cpf") or "", placeholder="000.000.000-00", key=f"cpf_{h['id']}")
                         c5, c6 = st.columns(2)
-                        e_tel  = c5.text_input("Telefone", value=h.get("telefone") or "", key=f"tel_{h['id']}")
-                        e_cel  = c6.text_input("Celular",  value=h.get("celular") or "", key=f"cel_{h['id']}")
+                        e_tel  = c5.text_input("Telefone", value=h.get("telefone") or "", placeholder="(00) 0000-0000", key=f"tel_{h['id']}")
+                        e_cel  = c6.text_input("Celular",  value=h.get("celular") or "", placeholder="(00) 00000-0000", key=f"cel_{h['id']}")
                         salvar_edit = st.form_submit_button("💾 Salvar alterações")
                     if salvar_edit:
-                        supabase.table("hospedes").update({
-                            "nome": e_nome, "data_nascimento": e_nasc,
-                            "rg": e_rg, "cpf": e_cpf,
-                            "telefone": e_tel, "celular": e_cel
-                        }).eq("id", h["id"]).execute()
-                        st.success("Ficha atualizada!")
-                        st.rerun()
+                        if e_cpf and not validar_cpf_cnpj(e_cpf):
+                            st.error("CPF/CNPJ inválido. Verifique os números digitados.")
+                        else:
+                            cpf_fmt = formatar_cpf_cnpj(e_cpf) if e_cpf else ""
+                            tel_fmt = formatar_telefone(e_tel) if e_tel else ""
+                            cel_fmt = formatar_telefone(e_cel) if e_cel else ""
+                            supabase.table("hospedes").update({
+                                "nome": e_nome, "data_nascimento": e_nasc,
+                                "rg": e_rg, "cpf": cpf_fmt,
+                                "telefone": tel_fmt, "celular": cel_fmt
+                            }).eq("id", h["id"]).execute()
+                            st.success("Ficha atualizada!")
+                            st.rerun()
 
                 with col_del:
                     st.markdown("&nbsp;")
@@ -679,9 +761,8 @@ def tela_cadastro_hospedes():
                                 if st.button("🧾 Gerar recibo", key=f"rec_{lanc['id']}"):
                                     lanc_atualizado = supabase.table("lancamentos").select("*").eq("id", lanc["id"]).execute().data[0]
                                     html_recibo = gerar_recibo_html(h, lanc_atualizado, lanc["id"])
-                                    b64 = base64.b64encode(html_recibo.encode()).decode()
-                                    href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:inline-block;padding:6px 12px;background:#0066cc;color:white;border-radius:4px;text-decoration:none;font-size:13px;">🖨️ Abrir recibo</a>'
-                                    st.markdown(href, unsafe_allow_html=True)
+                                    st.session_state["recibo_html"] = html_recibo
+                                    st.rerun()
 
 # ─── TELA CONFIGURAÇÕES ───────────────────────────────────────────────────────
 
