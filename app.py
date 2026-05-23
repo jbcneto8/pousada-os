@@ -359,7 +359,7 @@ def tela_configuracoes():
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
 def main():
-    st.sidebar.title("🏨 Pousada OS")
+    st.sidebar.image("Pousada_Jaguaruana.png", use_container_width=True)
     st.sidebar.markdown("---")
 
     pagina = st.sidebar.radio(
