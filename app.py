@@ -724,17 +724,23 @@ def tela_relatorios():
             )
         with col_exp2:
             import streamlit.components.v1 as components
-            b64_abrir = base64.b64encode(html_rel.encode("utf-8")).decode()
-            href_abrir = f"data:text/html;base64,{b64_abrir}"
-            st.markdown(
-                f'''<a href="{href_abrir}" target="_blank" style="
-                    display:block;width:100%;padding:9px 0;text-align:center;
-                    background:#1a1a2e;color:#fff;border-radius:6px;
-                    font-size:14px;font-weight:600;text-decoration:none;">
+            html_escaped = html_rel.replace('`', '\\`').replace('${', '\\${')
+            components.html(f'''
+                <script>
+                function abrirRelatorio() {{
+                    var conteudo = `{html_escaped}`;
+                    var blob = new Blob([conteudo], {{type: "text/html; charset=utf-8"}});
+                    var url = URL.createObjectURL(blob);
+                    window.open(url, "_blank");
+                }}
+                </script>
+                <button onclick="abrirRelatorio()" style="
+                    width:100%;padding:9px 0;cursor:pointer;
+                    background:#1a1a2e;color:#fff;border:none;border-radius:6px;
+                    font-size:14px;font-weight:600;">
                     🖨️ Visualizar / Imprimir (PDF)
-                </a>''',
-                unsafe_allow_html=True
-            )
+                </button>
+            ''', height=55)
 
 # ─── TELA CADASTRO DE HÓSPEDES ────────────────────────────────────────────────
 
