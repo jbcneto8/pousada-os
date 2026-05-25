@@ -1025,7 +1025,7 @@ def tela_cadastro_hospedes():
 
 def tela_configuracoes():
     st.title("⚙️ Configurações")
-    aba_cartoes, aba_categorias = st.tabs(["Cartões / Máquinas", "Categorias de gasto"])
+    aba_cartoes, aba_categorias, aba_backup = st.tabs(["Cartões / Máquinas", "Categorias de gasto", "💾 Backup"])
     with aba_cartoes:
         with st.form("form_operadora", clear_on_submit=True):
             col1, col2, col3 = st.columns(3)
@@ -1072,6 +1072,93 @@ def tela_configuracoes():
             if col3.button("🗑️", key=f"del_cat_{cat['id']}"):
                 supabase.table("categorias_despesa").delete().eq("id", cat["id"]).execute()
                 st.rerun()
+
+    with aba_backup:
+        st.subheader("💾 Backup geral dos dados")
+        st.caption("Baixa todos os lançamentos e hóspedes cadastrados até o momento em um arquivo Excel.")
+
+        if st.button("📥 Gerar backup agora", use_container_width=True, type="primary"):
+            try:
+                import io
+                try:
+                    import openpyxl
+                except ImportError:
+                    import subprocess, sys
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl", "-q"])
+                    import openpyxl
+
+                # Buscar dados
+                lancamentos = supabase.table("lancamentos").select("*").order("id").execute().data
+                hospedes    = supabase.table("hospedes").select("*").order("nome").execute().data
+
+                wb = openpyxl.Workbook()
+
+                # ── Aba Lançamentos ──
+                ws1 = wb.active
+                ws1.title = "Lançamentos"
+                cab_lanc = ["ID", "Data", "Tipo", "Valor (R$)", "Local", "Sub-local",
+                            "Quarto", "Tipo Quarto", "Hóspedes", "Modalidade",
+                            "Operadora", "Descrição", "Observação", "Hóspede ID"]
+                ws1.append(cab_lanc)
+
+                # Estilo cabeçalho
+                from openpyxl.styles import Font, PatternFill, Alignment
+                header_fill = PatternFill("solid", fgColor="1A1A2E")
+                header_font = Font(bold=True, color="FFFFFF")
+                for cell in ws1[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center")
+
+                for r in lancamentos:
+                    ws1.append([
+                        r.get("id"), r.get("data"), r.get("tipo"),
+                        r.get("valor"), r.get("local"), r.get("sub_local"),
+                        r.get("quarto"), r.get("tipo_quarto"), r.get("hospedes"),
+                        r.get("modalidade"), r.get("operadora"),
+                        r.get("descricao"), r.get("observacao"), r.get("hospede_id")
+                    ])
+
+                # Largura automática
+                for col in ws1.columns:
+                    max_w = max((len(str(c.value)) if c.value else 0) for c in col)
+                    ws1.column_dimensions[col[0].column_letter].width = min(max_w + 4, 40)
+
+                # ── Aba Hóspedes ──
+                ws2 = wb.create_sheet("Hóspedes")
+                cab_hosp = ["ID", "Nome", "Data Nascimento", "RG", "CPF/CNPJ", "Telefone", "Celular"]
+                ws2.append(cab_hosp)
+                for cell in ws2[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center")
+
+                for h in hospedes:
+                    ws2.append([
+                        h.get("id"), h.get("nome"), h.get("data_nascimento"),
+                        h.get("rg"), h.get("cpf"), h.get("telefone"), h.get("celular")
+                    ])
+                for col in ws2.columns:
+                    max_w = max((len(str(c.value)) if c.value else 0) for c in col)
+                    ws2.column_dimensions[col[0].column_letter].width = min(max_w + 4, 40)
+
+                # Salvar em memória
+                buf = io.BytesIO()
+                wb.save(buf)
+                buf.seek(0)
+
+                nome_arq = f"backup_pousada_{datetime.now().strftime('%d%m%Y_%H%M')}.xlsx"
+                st.success(f"✅ Backup gerado com {len(lancamentos)} lançamentos e {len(hospedes)} hóspedes.")
+                st.download_button(
+                    label="⬇️ Baixar arquivo Excel",
+                    data=buf,
+                    file_name=nome_arq,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            except Exception as e:
+                st.error(f"Erro ao gerar backup: {e}")
 
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
