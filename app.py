@@ -724,17 +724,17 @@ def tela_relatorios():
             )
         with col_exp2:
             import streamlit.components.v1 as components
-            if st.button("🖨️ Visualizar / Imprimir (PDF)", use_container_width=True):
-                st.session_state["relatorio_html"] = html_rel
-
-    if st.session_state.get("relatorio_html"):
-        st.subheader("🖨️ Prévia do relatório")
-        st.caption("Use Ctrl+P / Cmd+P para imprimir ou salvar como PDF.")
-        import streamlit.components.v1 as components
-        components.html(st.session_state["relatorio_html"], height=600, scrolling=True)
-        if st.button("✖️ Fechar prévia", key="fechar_rel"):
-            del st.session_state["relatorio_html"]
-            st.rerun()
+            b64_abrir = base64.b64encode(html_rel.encode("utf-8")).decode()
+            href_abrir = f"data:text/html;base64,{b64_abrir}"
+            st.markdown(
+                f'''<a href="{href_abrir}" target="_blank" style="
+                    display:block;width:100%;padding:9px 0;text-align:center;
+                    background:#1a1a2e;color:#fff;border-radius:6px;
+                    font-size:14px;font-weight:600;text-decoration:none;">
+                    🖨️ Visualizar / Imprimir (PDF)
+                </a>''',
+                unsafe_allow_html=True
+            )
 
 # ─── TELA CADASTRO DE HÓSPEDES ────────────────────────────────────────────────
 
