@@ -1075,7 +1075,49 @@ def tela_configuracoes():
 
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
+# ─── TELA DE LOGIN ───────────────────────────────────────────────────────────
+
+def tela_login():
+    st.markdown("""
+        <style>
+        .login-box {
+            max-width: 380px;
+            margin: 80px auto 0;
+            padding: 40px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+            text-align: center;
+        }
+        .login-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+        .login-sub   { font-size: 14px; color: #888; margin-bottom: 28px; }
+        </style>
+        <div class="login-box">
+            <div class="login-title">🏨 Pousada Jaguaruana</div>
+            <div class="login-sub">Digite a senha para acessar o sistema</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col_c, col_m, col_c2 = st.columns([1, 1.5, 1])
+    with col_m:
+        senha = st.text_input("Senha", type="password", placeholder="••••••••",
+                              key="input_senha", label_visibility="collapsed")
+        entrar = st.button("Entrar", use_container_width=True)
+
+        if entrar or (senha and st.session_state.get("_tentou_login")):
+            st.session_state["_tentou_login"] = True
+            senha_correta = st.secrets.get("APP_PASSWORD", "pousada2024")
+            if senha == senha_correta:
+                st.session_state["autenticado"] = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta. Tente novamente.")
+
 def main():
+    if not st.session_state.get("autenticado"):
+        tela_login()
+        return
+
     # Verificar fechamento mensal automático ao abrir o sistema
     verificar_fechamento_mensal()
 
