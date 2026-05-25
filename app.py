@@ -194,6 +194,18 @@ def gerar_recibo_html(hospede, lancamento, numero_recibo):
     cpf = hospede.get("cpf", "") or ""
     celular = hospede.get("celular", "") or ""
 
+    # Carregar logo como base64
+    logo_tag = ""
+    try:
+        import os
+        logo_path = "Pousada_Jaguaruana.png"
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+            logo_tag = f'<img src="data:image/png;base64,{logo_b64}" class="logo">'
+    except Exception:
+        pass
+
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -280,7 +292,7 @@ def gerar_recibo_html(hospede, lancamento, numero_recibo):
 <body>
 <div class="recibo">
   <div class="header">
-    <img src="Pousada_Jaguaruana.png" class="logo" onerror="this.style.display='none'">
+    {logo_tag}
     <div class="pousada-info">
       <h2>Pousada Jaguaruana</h2>
       <p>
@@ -341,6 +353,11 @@ def tela_extrato():
     col1.metric("Receitas",  f"R$ {total_rec:,.2f}")
     col2.metric("Despesas",  f"R$ {total_desp:,.2f}")
     col3.metric("Saldo",     f"R$ {saldo:,.2f}", delta=f"R$ {saldo:,.2f}")
+    if saldo < 0:
+        st.markdown(
+            f"<p style='color:red;font-weight:bold;'>⚠️ Saldo negativo: R$ {saldo:,.2f}</p>",
+            unsafe_allow_html=True
+        )
     st.divider()
     st.subheader("Lançamentos")
     if not lancamentos:
@@ -396,7 +413,7 @@ def tela_hospedagem():
     if st.session_state.mostrar_cadastro_rapido:
         st.divider()
         st.subheader("📋 Cadastrar novo hóspede")
-        with st.form("form_cadastro_rapido"):
+        with st.form("form_cadastro_rapido", enter_to_submit=False):
             c1, c2 = st.columns(2)
             novo_nome   = c1.text_input("Nome completo *")
             novo_nasc   = c2.text_input("Data de nascimento", placeholder="DD/MM/AAAA")
@@ -437,14 +454,6 @@ def tela_hospedagem():
     # Mapa de hóspedes padrão por tipo
     _qtd_por_tipo = {"Individual": 1, "Duplo": 2, "Triplo": 3, "Quádruplo": 4, "Aberto": 1}
 
-    col_tipo_fora, _ = st.columns([1, 1])
-    tipo_quarto = col_tipo_fora.selectbox(
-        "Tipo de quarto",
-        ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"],
-        key="tipo_quarto_sel"
-    )
-    qtd_default = _qtd_por_tipo.get(tipo_quarto, 1)
-
     with st.form("form_hospedagem", clear_on_submit=True):
         col1, col2 = st.columns(2)
         data        = col1.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"))
@@ -452,8 +461,12 @@ def tela_hospedagem():
 
         col3, col4 = st.columns(2)
         quarto      = col3.text_input("Quarto", placeholder="Ex: 3")
-        st.session_state["_tipo_quarto_display"] = tipo_quarto
-        col4.markdown(f"**Tipo:** {tipo_quarto}")
+        tipo_quarto = col4.selectbox(
+            "Tipo",
+            ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"],
+            key="tipo_quarto_sel"
+        )
+        qtd_default = _qtd_por_tipo.get(tipo_quarto, 1)
 
         col5, col6 = st.columns(2)
         pagamento   = col5.selectbox("Forma de pagamento", ["Dinheiro/Pix", "Cartão"])
@@ -711,15 +724,16 @@ def tela_relatorios():
             import streamlit.components.v1 as components
             if st.button("🖨️ Visualizar / Imprimir (PDF)", use_container_width=True):
                 st.session_state["relatorio_html"] = html_rel
-
-        if st.session_state.get("relatorio_html"):
-            st.subheader("🖨️ Prévia do relatório")
-            st.caption("Use Ctrl+P / Cmd+P para imprimir ou salvar como PDF.")
-            import streamlit.components.v1 as components
-            components.html(st.session_state["relatorio_html"], height=600, scrolling=True)
-            if st.button("✖️ Fechar prévia", key="fechar_rel"):
-                del st.session_state["relatorio_html"]
                 st.rerun()
+
+    if st.session_state.get("relatorio_html"):
+        st.subheader("🖨️ Prévia do relatório")
+        st.caption("Use Ctrl+P / Cmd+P para imprimir ou salvar como PDF.")
+        import streamlit.components.v1 as components
+        components.html(st.session_state["relatorio_html"], height=600, scrolling=True)
+        if st.button("✖️ Fechar prévia", key="fechar_rel"):
+            del st.session_state["relatorio_html"]
+            st.rerun()
 
 # ─── TELA CADASTRO DE HÓSPEDES ────────────────────────────────────────────────
 
@@ -729,7 +743,7 @@ def tela_cadastro_hospedes():
     aba_lista, aba_novo = st.tabs(["📋 Lista de hóspedes", "➕ Novo hóspede"])
 
     with aba_novo:
-        with st.form("form_novo_hospede", clear_on_submit=True):
+        with st.form("form_novo_hospede", clear_on_submit=True, enter_to_submit=False):
             c1, c2 = st.columns(2)
             nome   = c1.text_input("Nome completo *")
             nasc   = c2.text_input("Data de nascimento", placeholder="DD/MM/AAAA")
