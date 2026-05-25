@@ -75,6 +75,13 @@ def formatar_telefone(valor):
         return f"({nums[:2]}) {nums[2:6]}-{nums[6:]}"
     return valor
 
+def formatar_data(valor):
+    """Converte DDMMAAAA ou DD/MM/AAAA para DD/MM/AAAA"""
+    nums = ''.join(filter(str.isdigit, valor))
+    if len(nums) == 8:
+        return f"{nums[:2]}/{nums[2:4]}/{nums[4:]}"
+    return valor
+
 # ─── VALOR POR EXTENSO ────────────────────────────────────────────────────────
 
 def valor_por_extenso(valor):
@@ -409,7 +416,8 @@ def tela_hospedagem():
                 cpf_fmt = formatar_cpf_cnpj(novo_cpf) if novo_cpf else ""
                 tel_fmt = formatar_telefone(novo_tel) if novo_tel else ""
                 cel_fmt = formatar_telefone(novo_cel) if novo_cel else ""
-                h = salvar_hospede({"nome": novo_nome, "data_nascimento": novo_nasc,
+                nasc_fmt = formatar_data(novo_nasc) if novo_nasc else ""
+                h = salvar_hospede({"nome": novo_nome, "data_nascimento": nasc_fmt,
                                     "rg": novo_rg, "cpf": cpf_fmt,
                                     "telefone": tel_fmt, "celular": cel_fmt})
                 if h:
@@ -426,6 +434,17 @@ def tela_hospedagem():
     st.divider()
     st.subheader("🏨 Dados da hospedagem")
 
+    # Mapa de hóspedes padrão por tipo
+    _qtd_por_tipo = {"Individual": 1, "Duplo": 2, "Triplo": 3, "Quádruplo": 4, "Aberto": 1}
+
+    col_tipo_fora, _ = st.columns([1, 1])
+    tipo_quarto = col_tipo_fora.selectbox(
+        "Tipo de quarto",
+        ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"],
+        key="tipo_quarto_sel"
+    )
+    qtd_default = _qtd_por_tipo.get(tipo_quarto, 1)
+
     with st.form("form_hospedagem", clear_on_submit=True):
         col1, col2 = st.columns(2)
         data        = col1.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"))
@@ -433,11 +452,12 @@ def tela_hospedagem():
 
         col3, col4 = st.columns(2)
         quarto      = col3.text_input("Quarto", placeholder="Ex: 3")
-        tipo_quarto = col4.selectbox("Tipo", ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"])
+        st.session_state["_tipo_quarto_display"] = tipo_quarto
+        col4.markdown(f"**Tipo:** {tipo_quarto}")
 
         col5, col6 = st.columns(2)
         pagamento   = col5.selectbox("Forma de pagamento", ["Dinheiro/Pix", "Cartão"])
-        hospedes    = col6.number_input("Hóspedes", min_value=1, max_value=20, value=1)
+        hospedes    = col6.number_input("Hóspedes", min_value=1, max_value=20, value=qtd_default)
 
         observacao  = st.text_input("Observação (opcional)", placeholder="Ex: café da manhã incluso, pet friendly...")
 
@@ -449,11 +469,9 @@ def tela_hospedagem():
             operadora  = col7.selectbox("Operadora", obter_operadoras())
             modalidade = col8.selectbox("Modalidade", ["Crédito", "Débito"])
 
-        col_salvar, col_recibo = st.columns(2)
-        salvar  = col_salvar.form_submit_button("✅ Salvar receita", use_container_width=True)
-        recibo  = col_recibo.form_submit_button("🧾 Gerar recibo", use_container_width=True)
+        salvar = st.form_submit_button("✅ Salvar receita", use_container_width=True)
 
-    if salvar or recibo:
+    if salvar:
         try:
             valor = float(valor_texto.replace(",", "."))
             if not quarto:
@@ -462,17 +480,16 @@ def tela_hospedagem():
 
             hospede_id = st.session_state.hospede_selecionado["id"] if st.session_state.hospede_selecionado else None
 
+            tipo_quarto_val = st.session_state.get("tipo_quarto_sel", "Individual")
             res = supabase.table("lancamentos").insert({
                 "data": data, "tipo": "Receita", "valor": valor,
                 "local": "Hospedagem", "sub_local": "Pousada",
-                "quarto": quarto, "tipo_quarto": tipo_quarto,
+                "quarto": quarto, "tipo_quarto": tipo_quarto_val,
                 "hospedes": int(hospedes), "modalidade": pagamento,
                 "operadora": operadora if pagamento == "Cartão" else None,
                 "hospede_id": hospede_id,
                 "observacao": observacao
             }).execute()
-
-            lancamento_id = res.data[0]["id"] if res.data else 0
 
             if pagamento == "Cartão" and operadora:
                 r2 = supabase.table("operadoras").select("taxa_debito, taxa_credito").eq("nome", operadora).execute()
@@ -487,38 +504,12 @@ def tela_hospedagem():
                         }).execute()
 
             st.success("✅ Receita registrada com sucesso!")
-
-            if recibo and st.session_state.hospede_selecionado:
-                lancamento_dados = {
-                    "data": data, "valor": valor,
-                    "modalidade": pagamento, "observacao": observacao
-                }
-                html_recibo = gerar_recibo_html(
-                    st.session_state.hospede_selecionado,
-                    lancamento_dados,
-                    lancamento_id
-                )
-                st.session_state["recibo_html"] = html_recibo
-            elif recibo and not st.session_state.hospede_selecionado:
-                st.warning("Selecione um hóspede para gerar o recibo.")
-
             st.session_state.hospede_selecionado = None
 
         except ValueError:
             st.error("Valor inválido. Use apenas números, ex: 320,00")
         except Exception as e:
             st.error(f"Erro ao salvar: {e}")
-
-    if st.session_state.get("recibo_html"):
-        html_recibo = st.session_state["recibo_html"]
-        b64 = base64.b64encode(html_recibo.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:inline-block;padding:10px 20px;background:#0066cc;color:white;border-radius:6px;text-decoration:none;font-weight:bold;font-size:15px;">🖨️ Abrir recibo para imprimir</a>'
-        st.success("✅ Recibo gerado com sucesso!")
-        st.markdown(href, unsafe_allow_html=True)
-        st.caption("Se não abrir automaticamente, clique no botão acima. Verifique se popups estão permitidos neste site.")
-        if st.button("✖️ Limpar", key="fechar_recibo_hosp"):
-            del st.session_state["recibo_html"]
-            st.rerun()
 
 # ─── TELA DESPESAS ────────────────────────────────────────────────────────────
 
@@ -643,6 +634,93 @@ def tela_relatorios():
             obs   = f" — {item['descricao']}" if item.get("descricao") else ""
             st.write(f"{cor} `{item['data']}` R$ {item['valor']:,.2f} · {texto}{obs}")
 
+        # ── Exportar relatório ──────────────────────────────────────────────
+        st.divider()
+        st.subheader("📤 Exportar relatório")
+
+        linhas_html = ""
+        for item in filtrados:
+            cor_badge = "#28a745" if item["tipo"] == "Receita" else "#dc3545"
+            texto_item = f"Qrt {item.get('quarto')}" if item["tipo"] == "Receita" else item["local"]
+            obs_item   = f" — {item.get('descricao','')}" if item.get("descricao") else ""
+            linhas_html += f"""
+            <tr>
+              <td>{item['data']}</td>
+              <td><span style="background:{cor_badge};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">{item['tipo']}</span></td>
+              <td style="text-align:right">R$ {item['valor']:,.2f}</td>
+              <td>{texto_item}{obs_item}</td>
+            </tr>"""
+
+        html_rel = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório Pousada Jaguaruana</title>
+<style>
+  body {{ font-family: Arial, sans-serif; margin: 20px; color: #333; }}
+  h2 {{ color: #1a1a2e; }}
+  .filtros {{ font-size: 12px; color: #666; margin-bottom: 16px; }}
+  .resumo {{ display: flex; gap: 24px; margin-bottom: 20px; }}
+  .card {{ background: #f5f5f5; border-radius: 8px; padding: 12px 20px; min-width: 140px; }}
+  .card .label {{ font-size: 11px; color: #888; text-transform: uppercase; }}
+  .card .valor {{ font-size: 18px; font-weight: bold; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+  th {{ background: #1a1a2e; color: #fff; padding: 8px 10px; text-align: left; font-size: 12px; }}
+  td {{ padding: 7px 10px; border-bottom: 1px solid #eee; font-size: 13px; }}
+  tr:hover {{ background: #f9f9f9; }}
+  .rodape {{ margin-top: 20px; font-size: 11px; color: #aaa; text-align: center; }}
+  @media print {{ body {{ margin: 0; }} }}
+</style>
+</head>
+<body>
+  <h2>📑 Relatório — Pousada Jaguaruana</h2>
+  <div class="filtros">
+    Período: {data_ini} a {data_fim} &nbsp;|&nbsp;
+    Destino: {destino_f} &nbsp;|&nbsp;
+    Tipo: {tipo_f}
+    {f" &nbsp;|&nbsp; Quarto: {quarto_f}" if quarto_f else ""}
+  </div>
+  <div class="resumo">
+    <div class="card"><div class="label">Receitas</div><div class="valor" style="color:#28a745">R$ {t_rec:,.2f}</div></div>
+    <div class="card"><div class="label">Despesas</div><div class="valor" style="color:#dc3545">R$ {t_desp:,.2f}</div></div>
+    <div class="card"><div class="label">Saldo</div><div class="valor">R$ {t_rec - t_desp:,.2f}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Descrição</th></tr></thead>
+    <tbody>{linhas_html}</tbody>
+  </table>
+  <div class="rodape">Gerado em {datetime.now().strftime("%d/%m/%Y %H:%M")} · Pousada Jaguaruana · Jaguaruana-CE</div>
+  <script>
+    // Remover botões ao imprimir
+  </script>
+</body>
+</html>"""
+
+        col_exp1, col_exp2 = st.columns(2)
+        with col_exp1:
+            b64_html = base64.b64encode(html_rel.encode("utf-8")).decode()
+            nome_arq = f"relatorio_{data_ini.replace('/','')}__{data_fim.replace('/','')}.html"
+            st.download_button(
+                label="⬇️ Exportar como HTML",
+                data=html_rel.encode("utf-8"),
+                file_name=nome_arq,
+                mime="text/html",
+                use_container_width=True
+            )
+        with col_exp2:
+            import streamlit.components.v1 as components
+            if st.button("🖨️ Visualizar / Imprimir (PDF)", use_container_width=True):
+                st.session_state["relatorio_html"] = html_rel
+
+        if st.session_state.get("relatorio_html"):
+            st.subheader("🖨️ Prévia do relatório")
+            st.caption("Use Ctrl+P / Cmd+P para imprimir ou salvar como PDF.")
+            import streamlit.components.v1 as components
+            components.html(st.session_state["relatorio_html"], height=600, scrolling=True)
+            if st.button("✖️ Fechar prévia", key="fechar_rel"):
+                del st.session_state["relatorio_html"]
+                st.rerun()
+
 # ─── TELA CADASTRO DE HÓSPEDES ────────────────────────────────────────────────
 
 def tela_cadastro_hospedes():
@@ -671,7 +749,8 @@ def tela_cadastro_hospedes():
                 cpf_fmt = formatar_cpf_cnpj(cpf) if cpf else ""
                 tel_fmt = formatar_telefone(tel) if tel else ""
                 cel_fmt = formatar_telefone(cel) if cel else ""
-                h = salvar_hospede({"nome": nome, "data_nascimento": nasc,
+                nasc_fmt = formatar_data(nasc) if nasc else ""
+                h = salvar_hospede({"nome": nome, "data_nascimento": nasc_fmt,
                                     "rg": rg, "cpf": cpf_fmt,
                                     "telefone": tel_fmt, "celular": cel_fmt})
                 if h:
@@ -715,8 +794,9 @@ def tela_cadastro_hospedes():
                             cpf_fmt = formatar_cpf_cnpj(e_cpf) if e_cpf else ""
                             tel_fmt = formatar_telefone(e_tel) if e_tel else ""
                             cel_fmt = formatar_telefone(e_cel) if e_cel else ""
+                            nasc_fmt = formatar_data(e_nasc) if e_nasc else ""
                             supabase.table("hospedes").update({
-                                "nome": e_nome, "data_nascimento": e_nasc,
+                                "nome": e_nome, "data_nascimento": nasc_fmt,
                                 "rg": e_rg, "cpf": cpf_fmt,
                                 "telefone": tel_fmt, "celular": cel_fmt
                             }).eq("id", h["id"]).execute()
@@ -762,7 +842,19 @@ def tela_cadastro_hospedes():
                                     lanc_atualizado = supabase.table("lancamentos").select("*").eq("id", lanc["id"]).execute().data[0]
                                     html_recibo = gerar_recibo_html(h, lanc_atualizado, lanc["id"])
                                     st.session_state["recibo_html"] = html_recibo
+                                    st.session_state["recibo_aberto"] = True
                                     st.rerun()
+
+        if st.session_state.get("recibo_aberto") and st.session_state.get("recibo_html"):
+            import streamlit.components.v1 as components
+            st.divider()
+            st.subheader("🧾 Recibo gerado")
+            st.caption("Use Ctrl+P / Cmd+P no navegador para imprimir, ou salve como PDF pela caixa de impressão.")
+            components.html(st.session_state["recibo_html"], height=650, scrolling=True)
+            if st.button("✖️ Fechar recibo", key="fechar_recibo_cad"):
+                del st.session_state["recibo_html"]
+                st.session_state["recibo_aberto"] = False
+                st.rerun()
 
 # ─── TELA CONFIGURAÇÕES ───────────────────────────────────────────────────────
 
@@ -824,23 +916,23 @@ def main():
 
     pagina = st.sidebar.radio(
         "Menu",
-        ["📊 Extrato", "🏨 Hospedagem", "💸 Despesas", "🗺️ Mapa do dinheiro",
-         "📑 Relatórios", "👥 Cadastro de Hóspedes", "⚙️ Configurações"],
+        ["🏨 Hospedagem", "👥 Cadastro de Hóspedes", "💸 Despesas",
+         "📊 Extrato", "🗺️ Mapa do dinheiro", "📑 Relatórios", "⚙️ Configurações"],
         label_visibility="collapsed"
     )
 
-    if pagina == "📊 Extrato":
-        tela_extrato()
-    elif pagina == "🏨 Hospedagem":
+    if pagina == "🏨 Hospedagem":
         tela_hospedagem()
+    elif pagina == "👥 Cadastro de Hóspedes":
+        tela_cadastro_hospedes()
     elif pagina == "💸 Despesas":
         tela_despesas()
+    elif pagina == "📊 Extrato":
+        tela_extrato()
     elif pagina == "🗺️ Mapa do dinheiro":
         tela_mapa()
     elif pagina == "📑 Relatórios":
         tela_relatorios()
-    elif pagina == "👥 Cadastro de Hóspedes":
-        tela_cadastro_hospedes()
     elif pagina == "⚙️ Configurações":
         tela_configuracoes()
 
