@@ -1134,6 +1134,93 @@ def tela_configuracoes():
             except Exception as e:
                 st.error(f"Erro ao gerar backup: {e}")
 
+        st.divider()
+        st.subheader("📤 Restaurar backup")
+        st.warning("⚠️ A restauração **adiciona** os registros do arquivo ao banco. Não apaga dados existentes. Use apenas se perdeu registros.")
+
+        tipo_restore = st.radio("O que deseja restaurar?",
+                                ["Lançamentos", "Hóspedes"], horizontal=True,
+                                key="tipo_restore")
+
+        arquivo = st.file_uploader(
+            f"Selecione o arquivo CSV de {tipo_restore}",
+            type=["csv"], key="arquivo_restore"
+        )
+
+        if arquivo:
+            import io, csv as csvlib
+            conteudo = arquivo.read().decode("utf-8-sig")
+            reader = list(csvlib.DictReader(io.StringIO(conteudo)))
+            st.info(f"📄 Arquivo lido: **{len(reader)} registros** encontrados.")
+
+            if "confirmar_restore" not in st.session_state:
+                st.session_state["confirmar_restore"] = False
+
+            if not st.session_state["confirmar_restore"]:
+                if st.button("🔄 Iniciar restauração", type="primary", use_container_width=True):
+                    st.session_state["confirmar_restore"] = True
+                    st.rerun()
+            else:
+                st.error("⚠️ **Confirma a restauração?** Isso vai inserir os registros no banco de dados.")
+                col_sim, col_nao = st.columns(2)
+                with col_nao:
+                    if st.button("❌ Cancelar", use_container_width=True):
+                        st.session_state["confirmar_restore"] = False
+                        st.rerun()
+                with col_sim:
+                    if st.button("✅ Sim, restaurar", type="primary", use_container_width=True):
+                        try:
+                            inseridos = 0
+                            erros = 0
+
+                            if tipo_restore == "Lançamentos":
+                                for row in reader:
+                                    try:
+                                        dados = {
+                                            "data":        row.get("Data") or None,
+                                            "tipo":        row.get("Tipo") or None,
+                                            "valor":       float(row["Valor (R$)"]) if row.get("Valor (R$)") else 0,
+                                            "local":       row.get("Local") or None,
+                                            "sub_local":   row.get("Sub-local") or None,
+                                            "quarto":      row.get("Quarto") or None,
+                                            "tipo_quarto": row.get("Tipo Quarto") or None,
+                                            "hospedes":    int(row["Hospedes"]) if row.get("Hospedes") else None,
+                                            "modalidade":  row.get("Modalidade") or None,
+                                            "operadora":   row.get("Operadora") or None,
+                                            "descricao":   row.get("Descricao") or None,
+                                            "observacao":  row.get("Observacao") or None,
+                                            "hospede_id":  int(row["Hospede ID"]) if row.get("Hospede ID") else None,
+                                        }
+                                        supabase.table("lancamentos").insert(dados).execute()
+                                        inseridos += 1
+                                    except Exception:
+                                        erros += 1
+
+                            else:  # Hóspedes
+                                for row in reader:
+                                    try:
+                                        dados = {
+                                            "nome":             row.get("Nome") or None,
+                                            "data_nascimento":  row.get("Data Nascimento") or None,
+                                            "rg":               row.get("RG") or None,
+                                            "cpf":              row.get("CPF/CNPJ") or None,
+                                            "telefone":         row.get("Telefone") or None,
+                                            "celular":          row.get("Celular") or None,
+                                        }
+                                        supabase.table("hospedes").insert(dados).execute()
+                                        inseridos += 1
+                                    except Exception:
+                                        erros += 1
+
+                            st.session_state["confirmar_restore"] = False
+                            if inseridos > 0:
+                                st.success(f"✅ Restauração concluída! {inseridos} registro(s) importado(s)." +
+                                           (f" {erros} erro(s) ignorado(s)." if erros else ""))
+                            else:
+                                st.error("Nenhum registro foi importado. Verifique o arquivo.")
+                        except Exception as e:
+                            st.error(f"Erro na restauração: {e}")
+
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
 # ─── TELA DE LOGIN ───────────────────────────────────────────────────────────
