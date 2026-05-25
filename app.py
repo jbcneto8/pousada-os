@@ -741,11 +741,12 @@ def tela_relatorios():
 def tela_cadastro_hospedes():
     st.title("👥 Cadastro de Hóspedes")
 
-    # Limpar recibo ao entrar nesta tela para não abrir automaticamente
-    if "recibo_aberto" in st.session_state:
+    # Limpar recibo somente quando vier de outra tela (não em rerun interno)
+    if st.session_state.get("_pagina_anterior") != "cadastro_hospedes":
         st.session_state["recibo_aberto"] = False
-    if "recibo_html" in st.session_state:
-        del st.session_state["recibo_html"]
+        if "recibo_html" in st.session_state:
+            del st.session_state["recibo_html"]
+    st.session_state["_pagina_anterior"] = "cadastro_hospedes"
 
     aba_lista, aba_novo = st.tabs(["📋 Lista de hóspedes", "➕ Novo hóspede"])
 
@@ -941,6 +942,9 @@ def main():
          "📊 Extrato", "🗺️ Mapa do dinheiro", "📑 Relatórios", "⚙️ Configurações"],
         label_visibility="collapsed"
     )
+
+    if pagina != "👥 Cadastro de Hóspedes":
+        st.session_state["_pagina_anterior"] = pagina
 
     if pagina == "🏨 Hospedagem":
         tela_hospedagem()
