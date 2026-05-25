@@ -341,14 +341,127 @@ def gerar_recibo_html(hospede, lancamento, numero_recibo):
 </html>"""
     return html
 
+# ─── FECHAMENTO MENSAL AUTOMÁTICO ────────────────────────────────────────────
+
+def verificar_fechamento_mensal():
+    hoje = datetime.now()
+    # Só executa no dia 1° do mês
+    if hoje.day != 1:
+        return
+
+    # Mês anterior
+    primeiro_mes_atual = hoje.replace(day=1)
+    ultimo_mes_ant = primeiro_mes_atual - timedelta(days=1)
+    mes_ant_str = ultimo_mes_ant.strftime("%m/%Y")
+    dia1_str    = hoje.strftime("%d/%m/%Y")
+
+    # Verificar se já foi feito o lançamento de saldo anterior para este mês
+    chave = f"Saldo Anterior {mes_ant_str}"
+    ja_feito = supabase.table("lancamentos").select("id").eq("local", chave).execute().data
+    if ja_feito:
+        return  # já transferiu, não duplica
+
+    # Calcular saldo do mês anterior (todos os lançamentos daquele mês)
+    fmt = "%d/%m/%Y"
+    mes_ini = ultimo_mes_ant.replace(day=1).strftime(fmt)
+    mes_fim = ultimo_mes_ant.strftime(fmt)
+
+    todos = supabase.table("lancamentos").select("*").execute().data
+    rec_ant  = 0.0
+    desp_ant = 0.0
+    saldo_ant_transfer = 0.0
+
+    for r in todos:
+        try:
+            dt = datetime.strptime(r["data"], fmt)
+        except Exception:
+            continue
+        dt_ini = datetime.strptime(mes_ini, fmt)
+        dt_fim = datetime.strptime(mes_fim, fmt)
+        # Incluir saldo anterior do próprio mês anterior (se houver)
+        if r.get("local","").startswith("Saldo Anterior") and dt_ini <= dt <= dt_fim:
+            if r["tipo"] == "Receita":
+                saldo_ant_transfer += r["valor"]
+            else:
+                saldo_ant_transfer -= r["valor"]
+        elif dt_ini <= dt <= dt_fim:
+            if r["tipo"] == "Receita":
+                rec_ant += r["valor"]
+            elif r["tipo"] == "Despesa" and not r.get("local","").startswith("Saldo Anterior"):
+                desp_ant += r["valor"]
+
+    saldo_final = rec_ant - desp_ant + saldo_ant_transfer
+
+    if saldo_final == 0:
+        return  # nada a transferir
+
+    if saldo_final > 0:
+        supabase.table("lancamentos").insert({
+            "data": dia1_str,
+            "tipo": "Receita",
+            "valor": round(saldo_final, 2),
+            "local": chave,
+            "sub_local": "Pousada",
+            "descricao": f"Saldo transferido do mês {mes_ant_str}",
+            "quarto": None,
+        }).execute()
+    else:
+        supabase.table("lancamentos").insert({
+            "data": dia1_str,
+            "tipo": "Despesa",
+            "valor": round(abs(saldo_final), 2),
+            "local": chave,
+            "sub_local": "Pousada",
+            "descricao": f"Saldo negativo transferido do mês {mes_ant_str}",
+        }).execute()
+
 # ─── TELA EXTRATO ─────────────────────────────────────────────────────────────
 
 def tela_extrato():
-    st.title("📊 Extrato geral")
-    lancamentos = supabase.table("lancamentos").select("*").order("id", desc=True).execute().data
-    total_rec  = sum(r["valor"] for r in lancamentos if r["tipo"] == "Receita")
-    total_desp = sum(r["valor"] for r in lancamentos if r["tipo"] == "Despesa")
-    saldo      = total_rec - total_desp
+    st.title("📊 Extrato — Mês Atual")
+
+    hoje = datetime.now()
+    mes_atual_str = hoje.strftime("%m/%Y")
+    fmt = "%d/%m/%Y"
+    mes_ini = hoje.replace(day=1).strftime(fmt)
+    mes_fim = hoje.strftime(fmt)
+    dt_ini  = hoje.replace(day=1)
+    dt_fim  = hoje
+
+    # Buscar todos os lançamentos do mês atual
+    todos = supabase.table("lancamentos").select("*").order("id", desc=True).execute().data
+    lancamentos_mes = []
+    for r in todos:
+        try:
+            dt = datetime.strptime(r["data"], fmt)
+        except Exception:
+            continue
+        if dt_ini <= dt <= dt_fim:
+            lancamentos_mes.append(r)
+
+    # Separar saldo anterior dos demais
+    saldo_anterior = 0.0
+    lancamento_saldo_ant = None
+    receitas_mes  = []
+    despesas_mes  = []
+
+    for r in lancamentos_mes:
+        if r.get("local", "").startswith("Saldo Anterior"):
+            if r["tipo"] == "Receita":
+                saldo_anterior += r["valor"]
+            else:
+                saldo_anterior -= r["valor"]
+            lancamento_saldo_ant = r
+        elif r["tipo"] == "Receita":
+            receitas_mes.append(r)
+        else:
+            despesas_mes.append(r)
+
+    total_rec  = sum(r["valor"] for r in receitas_mes)
+    total_desp = sum(r["valor"] for r in despesas_mes)
+    saldo      = total_rec - total_desp + saldo_anterior
+
+    # Cards
     col1, col2, col3 = st.columns(3)
     col1.metric("Receitas", f"R$ {total_rec:,.2f}")
     col2.metric("Despesas", f"R$ {total_desp:,.2f}")
@@ -358,12 +471,33 @@ def tela_extrato():
         f"<div style='font-size:28px;font-weight:700;color:{cor_saldo}'>R$ {saldo:,.2f}</div>",
         unsafe_allow_html=True
     )
+
     st.divider()
-    st.subheader("Lançamentos")
-    if not lancamentos:
-        st.info("Nenhum lançamento encontrado.")
+
+    # Linha de saldo anterior destacada (se existir)
+    if lancamento_saldo_ant:
+        sinal = "+" if saldo_anterior >= 0 else ""
+        cor_sa = "#28a745" if saldo_anterior >= 0 else "#dc3545"
+        st.markdown(
+            f"<div style='background:#f0f4ff;border-left:4px solid #1a1a2e;"
+            f"padding:10px 16px;border-radius:4px;margin-bottom:8px;"
+            f"display:flex;justify-content:space-between;align-items:center;'>"
+            f"<span style='font-weight:600;color:#1a1a2e;'>📅 Saldo Anterior ({lancamento_saldo_ant['data']})</span>"
+            f"<span style='font-weight:700;font-size:16px;color:{cor_sa}'>{sinal}R$ {saldo_anterior:,.2f}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+    st.subheader(f"Lançamentos de {mes_atual_str}")
+
+    todos_mes = receitas_mes + despesas_mes
+    todos_mes_ord = sorted(todos_mes, key=lambda r: r["id"], reverse=True)
+
+    if not todos_mes_ord:
+        st.info("Nenhum lançamento neste mês ainda.")
         return
-    for row in lancamentos:
+
+    for row in todos_mes_ord:
         cor   = "🟢" if row["tipo"] == "Receita" else "🔴"
         texto = f"Hospedagem Q{row['quarto']}" if row["tipo"] == "Receita" else f"{row['local']} ({row['sub_local']})"
         obs   = f" — {row['descricao']}" if row.get("descricao") else ""
@@ -942,6 +1076,9 @@ def tela_configuracoes():
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
 def main():
+    # Verificar fechamento mensal automático ao abrir o sistema
+    verificar_fechamento_mensal()
+
     st.sidebar.image("Pousada_Jaguaruana.png", use_container_width=True)
     st.sidebar.markdown("---")
 
