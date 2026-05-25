@@ -350,14 +350,14 @@ def tela_extrato():
     total_desp = sum(r["valor"] for r in lancamentos if r["tipo"] == "Despesa")
     saldo      = total_rec - total_desp
     col1, col2, col3 = st.columns(3)
-    col1.metric("Receitas",  f"R$ {total_rec:,.2f}")
-    col2.metric("Despesas",  f"R$ {total_desp:,.2f}")
-    col3.metric("Saldo",     f"R$ {saldo:,.2f}", delta=f"R$ {saldo:,.2f}")
-    if saldo < 0:
-        st.markdown(
-            "<style>[data-testid='stMetricValue']:last-of-type { color: red !important; }</style>",
-            unsafe_allow_html=True
-        )
+    col1.metric("Receitas", f"R$ {total_rec:,.2f}")
+    col2.metric("Despesas", f"R$ {total_desp:,.2f}")
+    cor_saldo = "red" if saldo < 0 else "inherit"
+    col3.markdown(
+        f"<div style='font-size:14px;color:#888;margin-bottom:4px'>Saldo</div>"
+        f"<div style='font-size:28px;font-weight:700;color:{cor_saldo}'>R$ {saldo:,.2f}</div>",
+        unsafe_allow_html=True
+    )
     st.divider()
     st.subheader("Lançamentos")
     if not lancamentos:
