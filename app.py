@@ -724,12 +724,15 @@ def tela_relatorios():
             )
         with col_exp2:
             import streamlit.components.v1 as components
-            html_escaped = html_rel.replace('`', '\\`').replace('${', '\\${')
+            b64_rel = base64.b64encode(html_rel.encode("utf-8")).decode("utf-8")
             components.html(f'''
                 <script>
                 function abrirRelatorio() {{
-                    var conteudo = `{html_escaped}`;
-                    var blob = new Blob([conteudo], {{type: "text/html; charset=utf-8"}});
+                    var b64 = "{b64_rel}";
+                    var bin = atob(b64);
+                    var bytes = new Uint8Array(bin.length);
+                    for (var i = 0; i < bin.length; i++) {{ bytes[i] = bin.charCodeAt(i); }}
+                    var blob = new Blob([bytes], {{type: "text/html; charset=utf-8"}});
                     var url = URL.createObjectURL(blob);
                     window.open(url, "_blank");
                 }}
