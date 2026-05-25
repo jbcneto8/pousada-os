@@ -355,7 +355,7 @@ def tela_extrato():
     col3.metric("Saldo",     f"R$ {saldo:,.2f}", delta=f"R$ {saldo:,.2f}")
     if saldo < 0:
         st.markdown(
-            f"<p style='color:red;font-weight:bold;'>⚠️ Saldo negativo: R$ {saldo:,.2f}</p>",
+            "<style>[data-testid='stMetricValue']:last-of-type { color: red !important; }</style>",
             unsafe_allow_html=True
         )
     st.divider()
@@ -454,19 +454,20 @@ def tela_hospedagem():
     # Mapa de hóspedes padrão por tipo
     _qtd_por_tipo = {"Individual": 1, "Duplo": 2, "Triplo": 3, "Quádruplo": 4, "Aberto": 1}
 
+    # Quarto e Tipo ficam fora do form para permitir atualização dinâmica dos hóspedes
+    col3, col4 = st.columns(2)
+    quarto_ext = col3.text_input("Quarto", placeholder="Ex: 3", key="quarto_ext")
+    tipo_quarto = col4.selectbox(
+        "Tipo",
+        ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"],
+        key="tipo_quarto_sel"
+    )
+    qtd_default = _qtd_por_tipo.get(tipo_quarto, 1)
+
     with st.form("form_hospedagem", clear_on_submit=True):
         col1, col2 = st.columns(2)
         data        = col1.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"))
         valor_texto = col2.text_input("Valor total R$", placeholder="0,00")
-
-        col3, col4 = st.columns(2)
-        quarto      = col3.text_input("Quarto", placeholder="Ex: 3")
-        tipo_quarto = col4.selectbox(
-            "Tipo",
-            ["Individual", "Duplo", "Triplo", "Quádruplo", "Aberto"],
-            key="tipo_quarto_sel"
-        )
-        qtd_default = _qtd_por_tipo.get(tipo_quarto, 1)
 
         col5, col6 = st.columns(2)
         pagamento   = col5.selectbox("Forma de pagamento", ["Dinheiro/Pix", "Cartão"])
@@ -487,6 +488,7 @@ def tela_hospedagem():
     if salvar:
         try:
             valor = float(valor_texto.replace(",", "."))
+            quarto = st.session_state.get("quarto_ext", "")
             if not quarto:
                 st.warning("Informe o número do quarto.")
                 return
@@ -724,7 +726,6 @@ def tela_relatorios():
             import streamlit.components.v1 as components
             if st.button("🖨️ Visualizar / Imprimir (PDF)", use_container_width=True):
                 st.session_state["relatorio_html"] = html_rel
-                st.rerun()
 
     if st.session_state.get("relatorio_html"):
         st.subheader("🖨️ Prévia do relatório")
@@ -739,6 +740,12 @@ def tela_relatorios():
 
 def tela_cadastro_hospedes():
     st.title("👥 Cadastro de Hóspedes")
+
+    # Limpar recibo ao entrar nesta tela para não abrir automaticamente
+    if "recibo_aberto" in st.session_state:
+        st.session_state["recibo_aberto"] = False
+    if "recibo_html" in st.session_state:
+        del st.session_state["recibo_html"]
 
     aba_lista, aba_novo = st.tabs(["📋 Lista de hóspedes", "➕ Novo hóspede"])
 
