@@ -1226,9 +1226,22 @@ def tela_configuracoes():
 # ─── TELA DE LOGIN ───────────────────────────────────────────────────────────
 
 def tela_login():
-    st.markdown("""
+    # Carregar logo como base64
+    logo_html = ""
+    try:
+        import os
+        if os.path.exists("Pousada_Jaguaruana.png"):
+            with open("Pousada_Jaguaruana.png", "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+            logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="max-width:200px;margin-bottom:16px;">'
+        else:
+            logo_html = '<div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;">🏨 Pousada Jaguaruana</div>'
+    except Exception:
+        logo_html = '<div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;">🏨 Pousada Jaguaruana</div>'
+
+    st.markdown(f"""
         <style>
-        .login-box {
+        .login-box {{
             max-width: 380px;
             margin: 80px auto 0;
             padding: 40px;
@@ -1236,12 +1249,11 @@ def tela_login():
             border-radius: 12px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.10);
             text-align: center;
-        }
-        .login-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
-        .login-sub   { font-size: 14px; color: #888; margin-bottom: 28px; }
+        }}
+        .login-sub {{ font-size: 14px; color: #888; margin-bottom: 28px; }}
         </style>
         <div class="login-box">
-            <div class="login-title">🏨 Pousada Jaguaruana</div>
+            {logo_html}
             <div class="login-sub">Digite a senha para acessar o sistema</div>
         </div>
     """, unsafe_allow_html=True)
