@@ -415,6 +415,133 @@ def verificar_fechamento_mensal():
             "descricao": f"Saldo negativo transferido do mês {mes_ant_str}",
         }).execute()
 
+# ─── TEMAS / APARÊNCIA ────────────────────────────────────────────────────────
+
+TEMAS = {
+    "dark_profissional": {
+        "nome": "Dark Profissional",
+        "emoji": "🌑",
+        "desc": "Azul elétrico + fundo escuro. Moderno, reduz cansaço visual.",
+        "css": """
+            [data-testid="stSidebar"] { background: #1a1a2e !important; }
+            [data-testid="stSidebar"] * { color: #c0c0dd !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #378ADD !important; font-weight: 600; }
+            .stButton>button { background: #378ADD; color: #fff; border: none; }
+            .stButton>button:hover { background: #185FA5; }
+            [data-testid="stAppViewContainer"] { background: #0f0f1a; }
+            [data-testid="stAppViewContainer"] h1,[data-testid="stAppViewContainer"] h2,[data-testid="stAppViewContainer"] h3 { color: #e0e0ff; }
+            [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] label { color: #a0a0cc; }
+            [data-testid="stForm"] { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 16px; }
+            [data-testid="stMetric"] { background: #1a1a2e; border-radius: 8px; padding: 12px; }
+        """
+    },
+    "dark_esmeralda": {
+        "nome": "Dark Esmeralda",
+        "emoji": "🌿",
+        "desc": "Verde esmeralda + fundo escuro. Sofisticado e único.",
+        "css": """
+            [data-testid="stSidebar"] { background: #0d1f1a !important; }
+            [data-testid="stSidebar"] * { color: #7abfa8 !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #1D9E75 !important; font-weight: 600; }
+            .stButton>button { background: #1D9E75; color: #fff; border: none; }
+            .stButton>button:hover { background: #0F6E56; }
+            [data-testid="stAppViewContainer"] { background: #0a0f0e; }
+            [data-testid="stAppViewContainer"] h1,[data-testid="stAppViewContainer"] h2,[data-testid="stAppViewContainer"] h3 { color: #d0ffe8; }
+            [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] label { color: #6aaa90; }
+            [data-testid="stForm"] { background: #0d1f1a; border: 1px solid #1a3a30; border-radius: 10px; padding: 16px; }
+            [data-testid="stMetric"] { background: #0d1f1a; border-radius: 8px; padding: 12px; }
+        """
+    },
+    "dark_dourado": {
+        "nome": "Dark Vinho & Dourado",
+        "emoji": "✨",
+        "desc": "Dourado + fundo escuro quente. Elegante e sofisticado.",
+        "css": """
+            [data-testid="stSidebar"] { background: #1f0f0f !important; }
+            [data-testid="stSidebar"] * { color: #c09060 !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #EF9F27 !important; font-weight: 600; }
+            .stButton>button { background: #BA7517; color: #fff; border: none; }
+            .stButton>button:hover { background: #854F0B; }
+            [data-testid="stAppViewContainer"] { background: #0f0a0a; }
+            [data-testid="stAppViewContainer"] h1,[data-testid="stAppViewContainer"] h2,[data-testid="stAppViewContainer"] h3 { color: #ffe8cc; }
+            [data-testid="stAppViewContainer"] p, [data-testid="stAppViewContainer"] label { color: #a07050; }
+            [data-testid="stForm"] { background: #1f0f0f; border: 1px solid #3a1a1a; border-radius: 10px; padding: 16px; }
+            [data-testid="stMetric"] { background: #1f0f0f; border-radius: 8px; padding: 12px; }
+        """
+    },
+    "claro_moderno": {
+        "nome": "Claro Moderno",
+        "emoji": "☀️",
+        "desc": "Azul + fundo branco. Limpo e profissional.",
+        "css": """
+            [data-testid="stSidebar"] { background: #ffffff !important; border-right: 1px solid #e5e5ea; }
+            [data-testid="stSidebar"] * { color: #444 !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #185FA5 !important; font-weight: 600; }
+            .stButton>button { background: #185FA5; color: #fff; border: none; }
+            .stButton>button:hover { background: #0C447C; }
+            [data-testid="stAppViewContainer"] { background: #f5f5f7; }
+            [data-testid="stMetric"] { background: #ffffff; border-radius: 8px; padding: 12px; border: 1px solid #e5e5ea; }
+        """
+    },
+    "claro_rosa": {
+        "nome": "Claro Rosê",
+        "emoji": "🌸",
+        "desc": "Rosa suave + branco. Delicado e acolhedor.",
+        "css": """
+            [data-testid="stSidebar"] { background: #fff0f5 !important; border-right: 1px solid #f4c0d1; }
+            [data-testid="stSidebar"] * { color: #993556 !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #D4537E !important; font-weight: 600; }
+            .stButton>button { background: #D4537E; color: #fff; border: none; }
+            .stButton>button:hover { background: #993556; }
+            [data-testid="stAppViewContainer"] { background: #fff8fb; }
+            [data-testid="stMetric"] { background: #ffffff; border-radius: 8px; padding: 12px; border: 1px solid #f4c0d1; }
+            [data-testid="stAppViewContainer"] h1,[data-testid="stAppViewContainer"] h2 { color: #72243E; }
+        """
+    },
+    "claro_verde": {
+        "nome": "Claro Natural",
+        "emoji": "🍃",
+        "desc": "Verde natural + branco. Tranquilo e fresco.",
+        "css": """
+            [data-testid="stSidebar"] { background: #f0faf5 !important; border-right: 1px solid #9FE1CB; }
+            [data-testid="stSidebar"] * { color: #0F6E56 !important; }
+            [data-testid="stSidebarNav"] a[aria-selected="true"] span { color: #1D9E75 !important; font-weight: 600; }
+            .stButton>button { background: #1D9E75; color: #fff; border: none; }
+            .stButton>button:hover { background: #0F6E56; }
+            [data-testid="stAppViewContainer"] { background: #f5fdf9; }
+            [data-testid="stMetric"] { background: #ffffff; border-radius: 8px; padding: 12px; border: 1px solid #9FE1CB; }
+            [data-testid="stAppViewContainer"] h1,[data-testid="stAppViewContainer"] h2 { color: #085041; }
+        """
+    },
+}
+
+def aplicar_tema():
+    tema_id = st.session_state.get("tema_ativo", "dark_profissional")
+    tema = TEMAS.get(tema_id, TEMAS["dark_profissional"])
+    st.markdown(f"<style>{tema['css']}</style>", unsafe_allow_html=True)
+
+def salvar_tema(tema_id):
+    st.session_state["tema_ativo"] = tema_id
+    try:
+        existe = supabase.table("configuracoes").select("id").eq("chave", "tema").execute().data
+        if existe:
+            supabase.table("configuracoes").update({"valor": tema_id}).eq("chave", "tema").execute()
+        else:
+            supabase.table("configuracoes").insert({"chave": "tema", "valor": tema_id}).execute()
+    except Exception:
+        pass
+
+def carregar_tema_salvo():
+    if "tema_ativo" not in st.session_state:
+        try:
+            res = supabase.table("configuracoes").select("valor").eq("chave", "tema").execute().data
+            if res:
+                st.session_state["tema_ativo"] = res[0]["valor"]
+            else:
+                st.session_state["tema_ativo"] = "dark_profissional"
+        except Exception:
+            st.session_state["tema_ativo"] = "dark_profissional"
+
 # ─── TELA EXTRATO ─────────────────────────────────────────────────────────────
 
 def tela_extrato():
@@ -1025,7 +1152,7 @@ def tela_cadastro_hospedes():
 
 def tela_configuracoes():
     st.title("⚙️ Configurações")
-    aba_cartoes, aba_categorias, aba_backup = st.tabs(["Cartões / Máquinas", "Categorias de gasto", "💾 Backup"])
+    aba_cartoes, aba_categorias, aba_backup, aba_temas = st.tabs(["Cartões / Máquinas", "Categorias de gasto", "💾 Backup", "🎨 Temas"])
     with aba_cartoes:
         with st.form("form_operadora", clear_on_submit=True):
             col1, col2, col3 = st.columns(3)
@@ -1221,6 +1348,41 @@ def tela_configuracoes():
                         except Exception as e:
                             st.error(f"Erro na restauração: {e}")
 
+    with aba_temas:
+        st.subheader("🎨 Aparência do sistema")
+        st.caption("Clique em um tema para aplicar imediatamente. A escolha fica salva.")
+
+        tema_atual = st.session_state.get("tema_ativo", "dark_profissional")
+
+        cols = st.columns(3)
+        for idx, (tid, t) in enumerate(TEMAS.items()):
+            col = cols[idx % 3]
+            with col:
+                ativo = tema_atual == tid
+                borda = "3px solid #378ADD" if ativo else "1px solid #ddd"
+                badge = " ✓ Ativo" if ativo else ""
+                st.markdown(
+                    f"""<div style='border:{borda};border-radius:10px;padding:14px 12px;
+                        margin-bottom:8px;background:var(--color-background-secondary);'>
+                        <div style='font-size:22px;'>{t['emoji']}</div>
+                        <div style='font-weight:600;font-size:14px;color:var(--color-text-primary);
+                             margin:4px 0 2px;'>{t['nome']}{badge}</div>
+                        <div style='font-size:12px;color:var(--color-text-secondary);'>{t['desc']}</div>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                if not ativo:
+                    if st.button(f"Aplicar", key=f"tema_{tid}", use_container_width=True):
+                        salvar_tema(tid)
+                        st.success(f"Tema '{t['nome']}' aplicado!")
+                        st.rerun()
+                else:
+                    st.markdown(
+                        "<div style='text-align:center;font-size:12px;color:#378ADD;"
+                        "padding:4px;'>Tema atual</div>",
+                        unsafe_allow_html=True
+                    )
+
 # ─── NAVEGAÇÃO PRINCIPAL ──────────────────────────────────────────────────────
 
 # ─── TELA DE LOGIN ───────────────────────────────────────────────────────────
@@ -1277,6 +1439,10 @@ def main():
     if not st.session_state.get("autenticado"):
         tela_login()
         return
+
+    # Carregar e aplicar tema salvo
+    carregar_tema_salvo()
+    aplicar_tema()
 
     # Verificar fechamento mensal automático ao abrir o sistema
     verificar_fechamento_mensal()
