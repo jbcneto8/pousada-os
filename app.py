@@ -1448,6 +1448,16 @@ def main():
     verificar_fechamento_mensal()
 
     st.sidebar.image("Pousada_Jaguaruana.png", use_container_width=True)
+    tema_atual = st.session_state.get("tema_ativo", "dark_profissional")
+    blend = "screen" if tema_atual.startswith("dark") else "multiply"
+    st.markdown(f"""
+        <style>
+        [data-testid="stSidebar"] img {{
+            background: transparent !important;
+            mix-blend-mode: {blend};
+        }}
+        </style>
+    """, unsafe_allow_html=True)
     st.sidebar.markdown("---")
 
     pagina = st.sidebar.radio(
