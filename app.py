@@ -552,8 +552,8 @@ def tela_extrato():
     fmt = "%d/%m/%Y"
     mes_ini = hoje.replace(day=1).strftime(fmt)
     mes_fim = hoje.strftime(fmt)
-    dt_ini  = hoje.replace(day=1)
-    dt_fim  = hoje
+    dt_ini  = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    dt_fim  = hoje.replace(hour=23, minute=59, second=59, microsecond=0)
 
     # Buscar todos os lançamentos do mês atual
     todos = supabase.table("lancamentos").select("*").order("id", desc=True).execute().data
