@@ -823,7 +823,10 @@ def tela_despesas():
 
 def tela_mapa():
     st.title("🗺️ Mapa do dinheiro")
-    dados = supabase.table("lancamentos").select("*").execute().data
+    hoje = datetime.now()
+    mes_str = hoje.strftime("%m/%Y")
+    todos = supabase.table("lancamentos").select("*").execute().data
+    dados = [r for r in todos if r.get("data", "").endswith(mes_str)]
     total_rec     = sum(r["valor"] for r in dados if r["tipo"] == "Receita")
     gasto_casa    = sum(r["valor"] for r in dados if r["tipo"] == "Despesa" and r["sub_local"] == "Casa")
     gasto_pousada = sum(r["valor"] for r in dados if r["tipo"] == "Despesa" and r["sub_local"] == "Pousada")
