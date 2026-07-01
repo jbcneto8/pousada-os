@@ -826,7 +826,7 @@ def tela_mapa():
     hoje = datetime.now()
     mes_str = hoje.strftime("%m/%Y")
     todos = supabase.table("lancamentos").select("*").execute().data
-    dados = [r for r in todos if r.get("data", "").endswith(mes_str)]
+    dados = [r for r in todos if r.get("data", "").endswith(mes_str) and not (r.get("descricao") or "").startswith("Saldo Anterior") and not (r.get("local") or "").startswith("Saldo Anterior")]
     total_rec     = sum(r["valor"] for r in dados if r["tipo"] == "Receita")
     gasto_casa    = sum(r["valor"] for r in dados if r["tipo"] == "Despesa" and r["sub_local"] == "Casa")
     gasto_pousada = sum(r["valor"] for r in dados if r["tipo"] == "Despesa" and r["sub_local"] == "Pousada")
