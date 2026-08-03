@@ -345,11 +345,8 @@ def gerar_recibo_html(hospede, lancamento, numero_recibo):
 
 def verificar_fechamento_mensal():
     hoje = datetime.now()
-    # Só executa no dia 1° do mês
-    if hoje.day != 1:
-        return
 
-    # Mês anterior
+    # Mês anterior (sempre verifica, não só no dia 1°)
     primeiro_mes_atual = hoje.replace(day=1)
     ultimo_mes_ant = primeiro_mes_atual - timedelta(days=1)
     mes_ant_str = ultimo_mes_ant.strftime("%m/%Y")
