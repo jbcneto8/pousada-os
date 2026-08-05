@@ -113,6 +113,15 @@ def get_supabase():
 
 supabase = get_supabase()
 
+# Diagnóstico de conexão
+import socket
+try:
+    socket.getaddrinfo("ytpnstmjkawwwcwdzccw.supabase.co", 443)
+    _dns_ok = True
+except Exception as e:
+    _dns_ok = False
+    _dns_err = str(e)
+
 # ─── FORMATAÇÃO E VALIDAÇÃO ───────────────────────────────────────────────────
 
 def formatar_cpf_cnpj(valor):
@@ -1534,6 +1543,11 @@ def main():
     if not st.session_state.get("autenticado"):
         tela_login()
         return
+
+    # Diagnóstico de conexão
+    if not _dns_ok:
+        st.error(f"❌ Erro DNS: {_dns_err}")
+        st.stop()
 
     # Carregar e aplicar tema salvo
     carregar_tema_salvo()
