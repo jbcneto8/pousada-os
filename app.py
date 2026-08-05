@@ -1,7 +1,7 @@
 import streamlit as st
-from supabase import create_client, Client
 from datetime import datetime, timedelta
 import base64, json
+import requests
 
 st.set_page_config(
     page_title="Pousada OS",
@@ -10,11 +10,106 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ─── CLIENTE SUPABASE VIA REQUESTS (compatível com Python 3.14) ───────────────
+class SupabaseTable:
+    def __init__(self, url, key, table):
+        self.url = url
+        self.key = key
+        self.table = table
+        self._filters = []
+        self._select = "*"
+        self._order = None
+        self._desc = False
+
+    def select(self, cols="*"):
+        self._select = cols
+        return self
+
+    def order(self, col, desc=False):
+        self._order = col
+        self._desc = desc
+        return self
+
+    def eq(self, col, val):
+        self._filters.append(f"{col}=eq.{val}")
+        return self
+
+
+
+    def insert(self, row):
+        headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15)
+        r.raise_for_status()
+        self.data = r.json()
+        return self
+
+    def ilike(self, col, val):
+        self._filters.append(f"{col}=ilike.{val}")
+        return self
+
+    def update(self, row):
+        self._update_row = row
+        self._mode = "update"
+        return self
+
+    def delete(self):
+        self._mode = "delete"
+        return self
+
+    def upsert(self, row):
+        headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=representation"
+        }
+        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15)
+        r.raise_for_status()
+        self.data = r.json()
+        return self
+
+    def execute(self):
+        mode = getattr(self, "_mode", "select")
+        params = "&".join(self._filters)
+        headers_base = {"apikey": self.key, "Authorization": f"Bearer {self.key}"}
+
+        if mode == "update":
+            headers = {**headers_base, "Content-Type": "application/json", "Prefer": "return=representation"}
+            r = requests.patch(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, json=self._update_row, timeout=15)
+        elif mode == "delete":
+            headers = {**headers_base, "Prefer": "return=representation"}
+            r = requests.delete(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, timeout=15)
+        else:
+            select_params = f"select={self._select}"
+            for f in self._filters:
+                select_params += f"&{f}"
+            if self._order:
+                select_params += f"&order={self._order}.{'desc' if self._desc else 'asc'}"
+            headers = headers_base
+            r = requests.get(f"{self.url}/rest/v1/{self.table}?{select_params}", headers=headers, timeout=15)
+
+        r.raise_for_status()
+        self.data = r.json()
+        return self
+
+class SupabaseClient:
+    def __init__(self, url, key):
+        self.url = url
+        self.key = key
+
+    def table(self, name):
+        return SupabaseTable(self.url, self.key, name)
+
 @st.cache_resource
-def get_supabase() -> Client:
+def get_supabase():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
-    return create_client(url, key)
+    return SupabaseClient(url, key)
 
 supabase = get_supabase()
 
