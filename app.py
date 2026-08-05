@@ -1445,7 +1445,10 @@ def main():
     aplicar_tema()
 
     # Verificar fechamento mensal automático ao abrir o sistema
-    verificar_fechamento_mensal()
+    try:
+        verificar_fechamento_mensal()
+    except Exception:
+        pass  # ignora erro de conexão, tenta na próxima abertura
 
     st.sidebar.image("Pousada_Jaguaruana.png", use_container_width=True)
     tema_atual = st.session_state.get("tema_ativo", "dark_profissional")
