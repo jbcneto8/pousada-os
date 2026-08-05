@@ -2,6 +2,8 @@ import streamlit as st
 from datetime import datetime, timedelta
 import base64, json
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(
     page_title="Pousada OS",
@@ -43,7 +45,7 @@ class SupabaseTable:
             "Content-Type": "application/json",
             "Prefer": "return=representation"
         }
-        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15)
+        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15, verify=False)
         r.raise_for_status()
         self.data = r.json()
         return self
@@ -68,7 +70,7 @@ class SupabaseTable:
             "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates,return=representation"
         }
-        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15)
+        r = requests.post(f"{self.url}/rest/v1/{self.table}", headers=headers, json=row, timeout=15, verify=False)
         r.raise_for_status()
         self.data = r.json()
         return self
@@ -80,10 +82,10 @@ class SupabaseTable:
 
         if mode == "update":
             headers = {**headers_base, "Content-Type": "application/json", "Prefer": "return=representation"}
-            r = requests.patch(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, json=self._update_row, timeout=15)
+            r = requests.patch(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, json=self._update_row, timeout=15, verify=False)
         elif mode == "delete":
             headers = {**headers_base, "Prefer": "return=representation"}
-            r = requests.delete(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, timeout=15)
+            r = requests.delete(f"{self.url}/rest/v1/{self.table}?{params}", headers=headers, timeout=15, verify=False)
         else:
             select_params = f"select={self._select}"
             for f in self._filters:
@@ -91,7 +93,7 @@ class SupabaseTable:
             if self._order:
                 select_params += f"&order={self._order}.{'desc' if self._desc else 'asc'}"
             headers = headers_base
-            r = requests.get(f"{self.url}/rest/v1/{self.table}?{select_params}", headers=headers, timeout=15)
+            r = requests.get(f"{self.url}/rest/v1/{self.table}?{select_params}", headers=headers, timeout=15, verify=False)
 
         r.raise_for_status()
         self.data = r.json()
